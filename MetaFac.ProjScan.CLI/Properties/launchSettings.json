@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "ProjScan": {
+      "commandName": "Project",
+      "commandLineArgs": "-p ..\\..\\..\\..\\.."
+    }
+  }
+}
