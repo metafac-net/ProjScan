@@ -11,6 +11,19 @@ using System.Xml.XPath;
 
 namespace ProjScan
 {
+    internal readonly struct ItemSupportPeriod
+    {
+        public readonly string Name;
+        public readonly DateTime Start;
+        public readonly DateTime End;
+
+        public ItemSupportPeriod(string name, DateTime start, DateTime end) : this()
+        {
+            Name = name;
+            Start = start;
+            End = end;
+        }
+    }
 
     public class Program
     {
@@ -73,6 +86,17 @@ namespace ProjScan
             string[] files = Directory.GetFiles(pathRoot, "*.csproj", SearchOption.AllDirectories)
                 .ToArray();
 
+            //------------------------------ data --------------------------------------------------
+
+            var dotNetSupportPeriods = new ItemSupportPeriod[]
+            {
+                new ItemSupportPeriod("net5", new DateTime(2020, 11, 10), new DateTime(2022, 5, 14)),
+                new ItemSupportPeriod("net6", new DateTime(2021, 11, 10), new DateTime(2024, 11, 12)),
+                new ItemSupportPeriod("net7", new DateTime(2022, 11, 10), new DateTime(2024, 5, 14)),
+                new ItemSupportPeriod("net8", new DateTime(2023, 11, 10), new DateTime(2026, 11, 10)),
+                new ItemSupportPeriod("net9", new DateTime(2024, 11, 10), new DateTime(2026, 5, 14)),
+            };
+
             //------------------------------ scan --------------------------------------------------
 
             AnsiConsole.WriteLine($"Scanning {files.Length} project files...");
@@ -92,21 +116,14 @@ namespace ProjScan
             //------------------------------ analyse --------------------------------------------------
 
             ImmutableList<Message> CheckProperty(ProjectData project, string propertyName, Op op, string? expected = null,
-                StringComparison stringComparison = StringComparison.Ordinal,
-                bool ignoreWhitespace = false)
+                StringComparison stringComparison = StringComparison.Ordinal)
             {
-                string? TrimWhite(string? input, bool ignoreWhitespace)
-                {
-                    if (input is null) return null;
-                    return ignoreWhitespace ? input.Trim() : input;
-                }
-
                 ImmutableList<Message> result = ImmutableList<Message>.Empty;
 
-                bool exists = project.OtherProps.TryGetValue(propertyName, out string? actual);
+                    bool exists = project.OtherProps.TryGetValue(propertyName, out string? actual);
 
-                var comparee = TrimWhite(actual, ignoreWhitespace);
-                var comparand = TrimWhite(expected, ignoreWhitespace);
+                    var comparee = actual?.Trim();
+                    var comparand = expected?.Trim();
 
                 switch (op)
                 {
@@ -200,11 +217,21 @@ namespace ProjScan
 
                     messages.AddRange(CheckProperty(project, "TargetFramework", Op.NotExists));
                     messages.AddRange(CheckProperty(project, "TargetFrameworks", Op.Exists));
-                    messages.AddRange(CheckProperty(project, "TargetFrameworks", Op.NotContains, "net5"));
-                    messages.AddRange(CheckProperty(project, "TargetFrameworks", Op.NotContains, "net6"));
-                    messages.AddRange(CheckProperty(project, "TargetFrameworks", Op.NotContains, "net7"));
-                    messages.AddRange(CheckProperty(project, "TargetFrameworks", Op.Contains, "net8.0"));
-                    //messages.AddRange(CheckProperty(project, "TargetFrameworks", Op.Contains, "net9.0")); todo
+
+                    var now = DateTime.Now;
+                    foreach (var period in dotNetSupportPeriods)
+                    {
+                        // expiry
+                        if (now > period.Start && now < period.End)
+                        {
+                            messages.AddRange(CheckProperty(project, "TargetFrameworks", Op.Contains, period.Name));
+                        }
+                        // expiry
+                        if (now > period.End)
+                        {
+                            messages.AddRange(CheckProperty(project, "TargetFrameworks", Op.NotContains, period.Name));
+                        }
+                    }
 
                     messages.AddRange(CheckProperty(project, "Description", Op.Exists));
                     messages.AddRange(CheckProperty(project, "Product", productName is null ? Op.Exists : Op.Equals, productName));
