@@ -25,7 +25,8 @@ namespace MetaFac.ProjScan.Config.Tests
                 "  \"ProductName\": null,",
                 "  \"PackageRequireLicenseAcceptance\": null,",
                 "  \"PackageLicenseFile\": null,",
-                "  \"PackageLicenseExpression\": null",
+                "  \"PackageLicenseExpression\": null,",
+                "  \"ExemptionCodes\": null",
                 "}",
             });
         }
