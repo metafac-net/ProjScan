@@ -62,7 +62,7 @@ namespace ProjScan
             {
                 if (!otherProperties.TryAdd(kvp.Key, kvp.Value))
                 {
-                    messages.Add(Message.NewWarning($"Duplicate property found: {kvp.Key}={kvp.Value}"));
+                    messages.Add(Message.NewWarning($"Duplicate property found: {kvp.Key}={kvp.Value}", null));
                 }
             }
             return new ProjectData(projectName, fullPath)
@@ -115,15 +115,25 @@ namespace ProjScan
 
             //------------------------------ analyse --------------------------------------------------
 
-            ImmutableList<Message> CheckProperty(ProjectData project, string propertyName, Op op, string? expected = null,
+            ImmutableList<Message> CheckProperty(ProjectData project, HashSet<string> exemptionCodes, string propertyName, Op op, string? expected = null,
                 StringComparison stringComparison = StringComparison.Ordinal)
             {
-                ImmutableList<Message> result = ImmutableList<Message>.Empty;
+                ImmutableList<Message> result = [];
 
-                    bool exists = project.OtherProps.TryGetValue(propertyName, out string? actual);
+                bool exists = project.OtherProps.TryGetValue(propertyName, out string? actual);
 
-                    var comparee = actual?.Trim();
-                    var comparand = expected?.Trim();
+                var comparee = actual?.Trim();
+                var comparand = expected?.Trim();
+
+                string exemptionCode = (string.IsNullOrWhiteSpace(comparand)
+                    ? $"{propertyName}_{op}"
+                    : $"{propertyName}_{op}_{comparand}").ToLower();
+
+                // check if rule is exempt
+                if (exemptionCodes.Contains(exemptionCode))
+                {
+                    return result;
+                }
 
                 switch (op)
                 {
@@ -131,56 +141,56 @@ namespace ProjScan
                         if (!exists)
                         {
                             string warning = $"Expected '{propertyName}' to be present, but it was not found.";
-                            result = result.Add(Message.NewWarning(warning));
+                            result = result.Add(Message.NewWarning(warning, exemptionCode));
                         }
                         break;
                     case Op.NotExists:
                         if (exists)
                         {
                             string warning = $"Expected '{propertyName}' not to be present, but found '{actual}'.";
-                            result = result.Add(Message.NewWarning(warning));
+                            result = result.Add(Message.NewWarning(warning, exemptionCode));
                         }
                         break;
                     case Op.Equals:
                         if (string.Compare(comparee, comparand, stringComparison) != 0)
                         {
                             string warning = $"Expected '{propertyName}' to be '{expected}', but found '{actual}'.";
-                            result = result.Add(Message.NewWarning(warning));
+                            result = result.Add(Message.NewWarning(warning, exemptionCode));
                         }
                         break;
                     case Op.NotEquals:
                         if (string.Compare(comparee, comparand, stringComparison) == 0)
                         {
                             string warning = $"Expected '{propertyName}' not to be '{expected}', but found '{actual}'.";
-                            result = result.Add(Message.NewWarning(warning));
+                            result = result.Add(Message.NewWarning(warning, exemptionCode));
                         }
                         break;
                     case Op.Contains:
                         if (comparee is not null && comparand is not null && !comparee.Contains(comparand, stringComparison))
                         {
                             string warning = $"Expected '{propertyName}' to contain '{expected}', but '{actual}' does not.";
-                            result = result.Add(Message.NewWarning(warning));
+                            result = result.Add(Message.NewWarning(warning, exemptionCode));
                         }
                         break;
                     case Op.NotContains:
                         if (comparee is not null && comparand is not null && comparee.Contains(comparand, stringComparison))
                         {
                             string warning = $"Expected '{propertyName}' to not contain '{expected}', but '{actual}' does.";
-                            result = result.Add(Message.NewWarning(warning));
+                            result = result.Add(Message.NewWarning(warning, exemptionCode));
                         }
                         break;
                     case Op.StartsWith:
                         if (comparee is not null && comparand is not null && !comparee.StartsWith(comparand, stringComparison))
                         {
                             string warning = $"Expected '{propertyName}' to start with '{expected}', but '{actual}' does not.";
-                            result = result.Add(Message.NewWarning(warning));
+                            result = result.Add(Message.NewWarning(warning, exemptionCode));
                         }
                         break;
                     case Op.EndsWith:
                         if (comparee is not null && comparand is not null && !comparee.EndsWith(comparand, stringComparison))
                         {
                             string warning = $"Expected '{propertyName}' to end with '{expected}', but '{actual}' does not.";
-                            result = result.Add(Message.NewWarning(warning));
+                            result = result.Add(Message.NewWarning(warning, exemptionCode));
                         }
                         break;
                     default:
@@ -197,6 +207,12 @@ namespace ProjScan
 
                 if (cfg.ExcludeFromScan ?? false) continue;
 
+                HashSet<string> exemptionCodes = new HashSet<string>();
+                foreach (var exemptionCode in cfg.ExemptionCodes ?? Array.Empty<string>())
+                {
+                    exemptionCodes.Add(exemptionCode.Trim().ToLower());
+                }
+
                 string companyName = cfg.CompanyName ?? "UnknownCompany";
                 string? productName = cfg.ProductName;
 
@@ -207,16 +223,16 @@ namespace ProjScan
                 string adoProjName = pathParts[^3];
                 //string adoRepoName = pathParts[^3];
                 var messages = ImmutableList<Message>.Empty.ToBuilder();
-                messages.AddRange(CheckProperty(project, "LangVersion", Op.Equals, "latest"));
-                messages.AddRange(CheckProperty(project, "Nullable", Op.Equals, "enable"));
-                messages.AddRange(CheckProperty(project, "WarningsAsErrors", Op.Exists));
-                messages.AddRange(CheckProperty(project, "WarningsAsErrors", Op.Contains, "nullable"));
+                messages.AddRange(CheckProperty(project, exemptionCodes, "LangVersion", Op.Equals, "latest"));
+                messages.AddRange(CheckProperty(project, exemptionCodes, "Nullable", Op.Equals, "enable"));
+                messages.AddRange(CheckProperty(project, exemptionCodes, "WarningsAsErrors", Op.Exists));
+                messages.AddRange(CheckProperty(project, exemptionCodes, "WarningsAsErrors", Op.Contains, "nullable"));
                 if (project.IsPublished)
                 {
                     publicProjectCount++;
 
-                    messages.AddRange(CheckProperty(project, "TargetFramework", Op.NotExists));
-                    messages.AddRange(CheckProperty(project, "TargetFrameworks", Op.Exists));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFramework", Op.NotExists));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFrameworks", Op.Exists));
 
                     var now = DateTime.Now;
                     foreach (var period in dotNetSupportPeriods)
@@ -224,40 +240,40 @@ namespace ProjScan
                         // expiry
                         if (now > period.Start && now < period.End)
                         {
-                            messages.AddRange(CheckProperty(project, "TargetFrameworks", Op.Contains, period.Name));
+                            messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFrameworks", Op.Contains, period.Name));
                         }
                         // expiry
                         if (now > period.End)
                         {
-                            messages.AddRange(CheckProperty(project, "TargetFrameworks", Op.NotContains, period.Name));
+                            messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFrameworks", Op.NotContains, period.Name));
                         }
                     }
 
-                    messages.AddRange(CheckProperty(project, "Description", Op.Exists));
-                    messages.AddRange(CheckProperty(project, "Product", productName is null ? Op.Exists : Op.Equals, productName));
-                    messages.AddRange(CheckProperty(project, "Copyright", Op.StartsWith, $"Copyright (c) "));
-                    messages.AddRange(CheckProperty(project, "Copyright", Op.EndsWith, $"-{DateTime.Now.Year:D4} {companyName}"));
-                    messages.AddRange(CheckProperty(project, "Company", Op.Equals, companyName));
-                    messages.AddRange(CheckProperty(project, "Authors", Op.Equals, $"{companyName} Contributors"));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "Description", Op.Exists));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "Product", productName is null ? Op.Exists : Op.Equals, productName));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "Copyright", Op.StartsWith, $"Copyright (c) "));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "Copyright", Op.EndsWith, $"-{DateTime.Now.Year:D4} {companyName}"));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "Company", Op.Equals, companyName));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "Authors", Op.Equals, $"{companyName} Contributors"));
                     if (cfg.PackageRequireLicenseAcceptance is not null)
                     {
-                        messages.AddRange(CheckProperty(project, "PackageRequireLicenseAcceptance", Op.Equals, cfg.PackageRequireLicenseAcceptance.ToString()));
+                        messages.AddRange(CheckProperty(project, exemptionCodes, "PackageRequireLicenseAcceptance", Op.Equals, cfg.PackageRequireLicenseAcceptance.ToString()));
                     }
                     if (cfg.PackageLicenseFile is not null)
                     {
-                        messages.AddRange(CheckProperty(project, "PackageLicenseFile", Op.Equals, cfg.PackageLicenseFile));
+                        messages.AddRange(CheckProperty(project, exemptionCodes, "PackageLicenseFile", Op.Equals, cfg.PackageLicenseFile));
                     }
                     if (cfg.PackageLicenseExpression is not null)
                     {
-                        messages.AddRange(CheckProperty(project, "PackageLicenseExpression", Op.Equals, cfg.PackageLicenseExpression));
+                        messages.AddRange(CheckProperty(project, exemptionCodes, "PackageLicenseExpression", Op.Equals, cfg.PackageLicenseExpression));
                     }
-                    messages.AddRange(CheckProperty(project, "SignAssembly", Op.Equals, "true", StringComparison.OrdinalIgnoreCase));
-                    messages.AddRange(CheckProperty(project, "AssemblyOriginatorKeyFile", Op.Equals, @"..\SigningKey.snk", StringComparison.OrdinalIgnoreCase));
-                    messages.AddRange(CheckProperty(project, "IncludeSymbols", Op.Equals, "true", StringComparison.OrdinalIgnoreCase));
-                    messages.AddRange(CheckProperty(project, "SymbolPackageFormat", Op.Equals, "snupkg"));
-                    messages.AddRange(CheckProperty(project, "PackageReadmeFile", Op.Equals, "readme.md", StringComparison.OrdinalIgnoreCase));
-                    messages.AddRange(CheckProperty(project, "PackageProjectUrl", Op.Equals, $"https://github.com/{adoOrgName}/{adoProjName}", StringComparison.OrdinalIgnoreCase));
-                    messages.AddRange(CheckProperty(project, "RepositoryUrl", Op.Equals, $"https://github.com/{adoOrgName}/{adoProjName}", StringComparison.OrdinalIgnoreCase));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "SignAssembly", Op.Equals, "true", StringComparison.OrdinalIgnoreCase));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "AssemblyOriginatorKeyFile", Op.Equals, @"..\SigningKey.snk", StringComparison.OrdinalIgnoreCase));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "IncludeSymbols", Op.Equals, "true", StringComparison.OrdinalIgnoreCase));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "SymbolPackageFormat", Op.Equals, "snupkg"));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "PackageReadmeFile", Op.Equals, "readme.md", StringComparison.OrdinalIgnoreCase));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "PackageProjectUrl", Op.Equals, $"https://github.com/{adoOrgName}/{adoProjName}", StringComparison.OrdinalIgnoreCase));
+                    messages.AddRange(CheckProperty(project, exemptionCodes, "RepositoryUrl", Op.Equals, $"https://github.com/{adoOrgName}/{adoProjName}", StringComparison.OrdinalIgnoreCase));
                 }
                 var newProject = project with { Messages = messages.ToImmutable() };
 
