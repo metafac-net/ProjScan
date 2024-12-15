@@ -231,21 +231,40 @@ namespace ProjScan
                 {
                     publicProjectCount++;
 
-                    messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFramework", Op.NotExists));
-                    messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFrameworks", Op.Exists));
+                    if (project.OutputIsExe)
+                    {
+                        messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFramework", Op.Exists));
+                        messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFrameworks", Op.NotExists));
+                    }
+                    else
+                    {
+                        messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFramework", Op.NotExists));
+                        messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFrameworks", Op.Exists));
+                    }
 
                     var now = DateTime.Now;
                     foreach (var period in dotNetSupportPeriods)
                     {
-                        // expiry
-                        if (now > period.Start && now < period.End)
+                        if (project.OutputIsExe)
                         {
-                            messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFrameworks", Op.Contains, period.Name));
+                            // expired support
+                            if (now > period.End)
+                            {
+                                messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFramework", Op.NotContains, period.Name));
+                            }
                         }
-                        // expiry
-                        if (now > period.End)
+                        else
                         {
-                            messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFrameworks", Op.NotContains, period.Name));
+                            // within support
+                            if (now > period.Start && now < period.End)
+                            {
+                                messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFrameworks", Op.Contains, period.Name));
+                            }
+                            // expired support
+                            if (now > period.End)
+                            {
+                                messages.AddRange(CheckProperty(project, exemptionCodes, "TargetFrameworks", Op.NotContains, period.Name));
+                            }
                         }
                     }
 
