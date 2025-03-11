@@ -1,4 +1,4 @@
-using FluentAssertions;
+using Shouldly;
 using System.Text.Json;
 using Xunit;
 
@@ -17,7 +17,7 @@ namespace MetaFac.ProjScan.Config.Tests
             var jso = new JsonSerializerOptions() { WriteIndented = true };
             string text = JsonSerializer.Serialize<ProjScanJson>(cfg, jso);
             string[] lines = text.Split(new char[] { '\r', '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
-            lines.Should().BeEquivalentTo(new string[] {
+            lines.ShouldBeEquivalentTo(new string[] {
                 "{",
                 "  \"StopAscending\": true,",
                 "  \"ExcludeFromScan\": null,",
@@ -38,10 +38,10 @@ namespace MetaFac.ProjScan.Config.Tests
 
             ProjScanJson cfg = JsonSerializer.Deserialize<ProjScanJson>(text)!;
 
-            cfg.Should().NotBeNull();
-            cfg.StopAscending.Should().BeNull();
-            cfg.CompanyName.Should().Be("TestCo");
-            cfg.ProductName.Should().BeNull();
+            cfg.ShouldNotBeNull();
+            cfg.StopAscending.ShouldBeNull();
+            cfg.CompanyName.ShouldBe("TestCo");
+            cfg.ProductName.ShouldBeNull();
         }
 
         [Fact]
@@ -64,14 +64,15 @@ namespace MetaFac.ProjScan.Config.Tests
             };
 
             var result = new ProjScanJson(lowest, middle);
-            result.StopAscending.Should().BeNull();
-            result.ProductName.Should().Be("Product1");
-            result.CompanyName.Should().BeNull();
+            result.StopAscending.ShouldBeNull();
+            result.ProductName.ShouldBe("Product1");
+            result.CompanyName.ShouldBeNull();
 
             result = new ProjScanJson(result, highest);
-            result.StopAscending.Should().BeTrue();
-            result.ProductName.Should().Be("Product1");
-            result.CompanyName.Should().Be("TestCo");
+            result.StopAscending.ShouldNotBeNull();
+            result.StopAscending.Value.ShouldBeTrue();
+            result.ProductName.ShouldBe("Product1");
+            result.CompanyName.ShouldBe("TestCo");
 
         }
 
