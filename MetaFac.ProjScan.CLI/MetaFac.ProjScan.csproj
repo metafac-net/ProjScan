@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <OutputType>Exe</OutputType>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
@@ -13,7 +13,7 @@
     <Authors>MetaFac Contributors</Authors>
     <Company>MetaFac</Company>
     <Product>ProjScan</Product>
-    <Copyright>Copyright (c) 2021-2025 MetaFac</Copyright>
+    <Copyright>Copyright (c) 2021-2026 MetaFac</Copyright>
     <PackageRequireLicenseAcceptance>False</PackageRequireLicenseAcceptance>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>..\SigningKey.snk</AssemblyOriginatorKeyFile>
