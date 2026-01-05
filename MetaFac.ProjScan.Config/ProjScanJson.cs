@@ -28,13 +28,13 @@ namespace MetaFac.ProjScan.Config
             ExemptionCodes = source.ExemptionCodes ?? Array.Empty<string>();
             if (parent is not null)
             {
-                if (StopAscending is null) StopAscending = parent.StopAscending;
-                if (ExcludeFromScan is null) ExcludeFromScan = parent.ExcludeFromScan;
-                if (CompanyName is null) CompanyName = parent.CompanyName;
-                if (ProductName is null) ProductName = parent.ProductName;
-                if (PackageRequireLicenseAcceptance is null) PackageRequireLicenseAcceptance = parent.PackageRequireLicenseAcceptance;
-                if (PackageLicenseFile is null) PackageLicenseFile = parent.PackageLicenseFile;
-                if (PackageLicenseExpression is null) PackageLicenseExpression = parent.PackageLicenseExpression;
+                StopAscending ??= parent.StopAscending;
+                ExcludeFromScan ??= parent.ExcludeFromScan;
+                CompanyName ??= parent.CompanyName;
+                ProductName ??= parent.ProductName;
+                PackageRequireLicenseAcceptance ??= parent.PackageRequireLicenseAcceptance;
+                PackageLicenseFile ??= parent.PackageLicenseFile;
+                PackageLicenseExpression ??= parent.PackageLicenseExpression;
                 if (parent.ExemptionCodes is not null && parent.ExemptionCodes.Length > 0)
                 {
                     ExemptionCodes = ExemptionCodes.Concat(parent.ExemptionCodes).Distinct().ToArray();
