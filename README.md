@@ -1,6 +1,10 @@
 # ProjScan
 
-A very opinionated .NET project scanning tool, which checks published projects for:
+*Note: This repo is no longer being maintained.*
+
+The ProjScan tool is now being maintained at: https://github.com/datafac/projscan
+
+ProjScan is a very opinionated .NET project scanning tool, which checks published projects for:
 - missing or malformed copyright messages;
 - missing product name;
 - incorrect company name;
